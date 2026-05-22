@@ -616,6 +616,24 @@ ${negative_prompt || '写实照片感、模糊、比例失调、额外手指、�
   }
 });
 
+app.use('/api', (req, res) => {
+  res.status(404).json({ error: `接口不存在：${req.method} ${req.originalUrl}` });
+});
+
+app.use((err, req, res, next) => {
+  console.error('❌ 服务端异常:', err.message);
+
+  if (err instanceof multer.MulterError && err.code === 'LIMIT_FILE_SIZE') {
+    return res.status(413).json({ error: '图片文件过大，请压缩到 20MB 以内后再上传' });
+  }
+
+  if (err.type === 'entity.too.large') {
+    return res.status(413).json({ error: '请求内容过大，请压缩图片后再试' });
+  }
+
+  res.status(500).json({ error: err.message || '服务器错误' });
+});
+
 app.listen(PORT, () => {
   console.log('\n🎨 AI画风转换工具已启动');
   console.log(`🌐 访问: http://localhost:${PORT}\n`);

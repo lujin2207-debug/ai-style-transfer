@@ -256,6 +256,18 @@ function apiHeaders(extra = {}) {
   return { ...extra, 'x-user-api-key': requireUserApiKey() };
 }
 
+async function readApiResponse(response) {
+  const text = await response.text();
+  const contentType = response.headers.get('content-type') || '';
+
+  if (contentType.includes('application/json')) {
+    return JSON.parse(text || '{}');
+  }
+
+  const plainText = text.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
+  throw new Error(plainText || `接口返回异常：HTTP ${response.status}`);
+}
+
 function initApiKey() {
   const input = document.getElementById('api-key-input');
   if (!input) return;
@@ -399,7 +411,7 @@ async function run() {
       headers: apiHeaders(),
       body: fd
     });
-    const data = await res.json();
+    const data = await readApiResponse(res);
     clearInterval(interval);
     const pb = document.getElementById('pbar');
     if (pb) pb.style.width = '100%';
@@ -458,7 +470,7 @@ async function enhanceImage() {
       headers: apiHeaders({ 'Content-Type': 'application/json' }),
       body: JSON.stringify({ image: currentImage })
     });
-    const data = await res.json();
+    const data = await readApiResponse(res);
     if (!res.ok || !data.ok) throw new Error(data.error || '增强失败');
 
     showGeneratedImage(data.image || data.imageUrl, { kind: '画质增强' });
@@ -498,7 +510,7 @@ async function splitLayers() {
       headers: apiHeaders({ 'Content-Type': 'application/json' }),
       body: JSON.stringify({ image: currentImage })
     });
-    const data = await res.json();
+    const data = await readApiResponse(res);
     if (!res.ok || !data.ok) throw new Error(data.error || '拆分失败');
 
     statusEl.outerHTML = renderLayers(data.layers || []);
@@ -641,7 +653,7 @@ async function generateImage() {
       })
     });
 
-    const data = await res.json();
+    const data = await readApiResponse(res);
     clearInterval(iv);
 
     if (!res.ok || !data.ok) throw new Error(data.error || '生成失败');
