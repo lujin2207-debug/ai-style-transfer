@@ -314,19 +314,32 @@ const callGeminiMultiImageEdit = async ({ apiKey, baseURL, model, prompt, styleI
   return image;
 };
 
+const shouldUseGeminiNativeApi = (baseURL) => {
+  return Boolean(process.env.GEMINI_BASE_URL) || /googleapis\.com/i.test(baseURL);
+};
+
+const callOpenAICompatibleImageFlow = async (params) => {
+  try {
+    return await callOpenAICompatibleMultiImageEdit(params);
+  } catch (chatErr) {
+    console.warn('⚠️ /chat/completions 未返回图片，回退到 /images/generations reference_images 模式');
+    return callImagesGenerationWithReferences(params);
+  }
+};
+
 const callMultiImageStyleTransfer = async (params) => {
+  if (!shouldUseGeminiNativeApi(params.baseURL)) {
+    console.log('🔁 使用 OpenAI 兼容多图模式');
+    return callOpenAICompatibleImageFlow(params);
+  }
+
   try {
     return await callGeminiMultiImageEdit(params);
   } catch (err) {
     if (err.status !== 404) throw err;
 
     console.warn('⚠️ Gemini原生接口404，回退到 /chat/completions 多图模式');
-    try {
-      return await callOpenAICompatibleMultiImageEdit(params);
-    } catch (chatErr) {
-      console.warn('⚠️ /chat/completions 未返回图片，回退到 /images/generations reference_images 模式');
-      return callImagesGenerationWithReferences(params);
-    }
+    return callOpenAICompatibleImageFlow(params);
   }
 };
 
