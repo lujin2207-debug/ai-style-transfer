@@ -1,0 +1,782 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AI 画风转换工具</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;600&family=Noto+Sans+SC:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+  --bg: #0e0e0f; --bg2: #161618; --bg3: #1e1e21; --bg4: #28282d;
+  --border: rgba(255,255,255,0.07); --border2: rgba(255,255,255,0.13);
+  --text: #f0efe8; --text2: #9a9992; --text3: #5c5b57;
+  --accent: #c9a96e; --accent2: #e8c98a;
+  --accent-bg: rgba(201,169,110,0.09); --accent-border: rgba(201,169,110,0.28);
+  --green: #4caf7d; --green-bg: rgba(76,175,125,0.1); --green-border: rgba(76,175,125,0.25);
+  --red: #e05c5c; --red-bg: rgba(224,92,92,0.08); --red-border: rgba(224,92,92,0.2);
+  --radius: 12px; --rsm: 8px;
+}
+body { background: radial-gradient(circle at 50% -10%, rgba(92,116,145,.16), transparent 34%), var(--bg); color: var(--text); font-family: 'Noto Sans SC','PingFang SC','Microsoft YaHei',sans-serif; font-size: 14px; min-height: 100vh; }
+.shell { min-height: 100vh; }
+.sidebar { height: 42px; padding: 0 22px; display: flex; align-items: center; justify-content: space-between; background: rgba(22,22,24,.82); border-bottom: 1px solid var(--border); backdrop-filter: blur(14px); }
+.logo { font-size: 14px; font-weight: 600; color: var(--text); letter-spacing: .02em; margin-bottom: 0; display: flex; align-items: center; gap: 8px; }
+.logo-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--accent); animation: pulse 2s ease-in-out infinite; }
+@keyframes pulse { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:.5;transform:scale(.8)} }
+.logo-sub { font-size: 12px; color: var(--text3); letter-spacing: .03em; margin-bottom: 0; }
+.s-title { font-size: 10px; font-weight: 500; color: var(--text3); letter-spacing: .1em; text-transform: uppercase; margin: 20px 0 8px; }
+.api-wrap { position: relative; }
+.api-wrap input { width: 100%; padding: 9px 34px 9px 11px; background: var(--bg3); border: 1px solid var(--border2); border-radius: var(--rsm); color: var(--text); font-size: 12px; font-family: monospace; outline: none; transition: border-color .2s; }
+.api-wrap input:focus { border-color: var(--accent-border); }
+.api-wrap input::placeholder { color: var(--text3); font-family: 'Noto Sans SC',sans-serif; }
+.eye-btn { position: absolute; right: 9px; top: 50%; transform: translateY(-50%); background: none; border: none; cursor: pointer; color: var(--text3); font-size: 13px; padding: 2px; }
+.api-tag { font-size: 11px; margin-top: 6px; padding: 4px 8px; border-radius: 4px; display: inline-flex; align-items: center; gap: 5px; }
+.api-tag.ok { background: var(--green-bg); color: var(--green); border: 1px solid var(--green-border); }
+.api-tag.err { background: var(--red-bg); color: var(--red); border: 1px solid var(--red-border); }
+.api-tag.idle { color: var(--text3); }
+.chips { display: flex; flex-direction: column; gap: 3px; }
+.chip { padding: 7px 11px; border-radius: var(--rsm); border: 1px solid transparent; font-size: 12px; cursor: pointer; color: var(--text2); transition: all .15s; background: transparent; text-align: left; font-family: inherit; line-height: 1.4; }
+.chip:hover { background: var(--bg3); color: var(--text); }
+.chip.active { background: var(--accent-bg); border-color: var(--accent-border); color: var(--accent2); }
+.sidebar-foot { margin-top: auto; padding-top: 18px; font-size: 11px; color: var(--text3); line-height: 1.8; border-top: 1px solid var(--border); }
+.sidebar-foot a { color: var(--accent); text-decoration: none; }
+.main { padding: clamp(14px, 2vw, 24px); width: 100%; max-width: min(96vw, 1440px); margin: 0 auto; }
+.ph { margin-bottom: 14px; }
+.ph h1 { font-size: 20px; font-weight: 700; color: var(--text); margin-bottom: 6px; }
+.ph p { font-size: 12px; color: var(--text2); line-height: 1.6; }
+.workbench { display: grid; grid-template-columns: minmax(260px, .9fr) minmax(380px, 1.8fr) minmax(180px, .65fr); gap: clamp(10px, 1.4vw, 18px); align-items: stretch; width: 100%; min-height: calc(100vh - 132px); }
+.control-panel { min-width: 0; background: rgba(255,255,255,.035); border: 1px solid var(--border2); border-radius: var(--radius); padding: 12px; box-shadow: inset 0 1px 0 rgba(255,255,255,.03); }
+.output-panel { min-width: 0; }
+.history-panel { min-width: 0; background: rgba(255,255,255,.035); border: 1px solid var(--border2); border-radius: var(--radius); overflow: hidden; box-shadow: inset 0 1px 0 rgba(255,255,255,.03); }
+.history-head { padding: 11px 14px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.history-title { font-size: 12px; color: var(--text2); font-weight: 500; }
+.history-clear { background: none; border: none; color: var(--text3); cursor: pointer; font-size: 11px; font-family: inherit; }
+.history-clear:hover { color: var(--red); }
+.history-list { padding: 10px; height: calc(100% - 42px); min-height: 220px; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; }
+.history-empty { min-height: 220px; display: flex; align-items: center; justify-content: center; text-align: center; color: var(--text3); font-size: 12px; line-height: 1.7; border: 1px dashed var(--border2); border-radius: var(--rsm); padding: 16px; }
+.history-item { border: 1px solid var(--border); border-radius: var(--rsm); overflow: hidden; background: var(--bg3); cursor: pointer; transition: border-color .15s, transform .15s; }
+.history-item:hover { border-color: var(--accent-border); transform: translateY(-1px); }
+.history-thumb { width: 100%; height: 126px; object-fit: cover; display: block; background: var(--bg); }
+.history-meta { padding: 8px 9px; }
+.history-kind { font-size: 11px; color: var(--accent); margin-bottom: 4px; }
+.history-time { font-size: 10px; color: var(--text3); }
+.key-box { margin-bottom: 12px; padding: 10px; border: 1px solid var(--border2); border-radius: var(--rsm); background: rgba(14,14,15,.42); }
+.key-label { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 8px; font-size: 12px; color: var(--text); }
+.key-status { font-size: 11px; color: var(--text3); }
+.key-status.ok { color: var(--green); }
+.key-row { display: grid; grid-template-columns: 1fr auto; gap: 8px; }
+.key-row input { min-width: 0; width: 100%; padding: 9px 10px; background: var(--bg); border: 1px solid var(--border2); border-radius: 6px; color: var(--text); font-size: 12px; font-family: 'Cascadia Code','Consolas',monospace; outline: none; }
+.key-row input:focus { border-color: var(--accent-border); }
+.key-toggle { padding: 0 10px; border: 1px solid var(--border2); border-radius: 6px; color: var(--text2); background: transparent; cursor: pointer; font-family: inherit; }
+.key-help { margin-top: 7px; font-size: 11px; line-height: 1.6; color: var(--text3); }
+.up-grid { display: flex; flex-direction: column; gap: 12px; margin-bottom: 12px; }
+.up-panel { background: rgba(14,14,15,.42); border: 1px solid var(--border2); border-radius: var(--rsm); overflow: hidden; transition: border-color .25s; }
+.up-panel.has { border-color: var(--accent-border); }
+.up-panel.drag { border-color: var(--accent); background: var(--bg3); }
+.panel-head { padding: 9px 10px 0; border-bottom: none; display: flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 500; color: var(--text); }
+.snum { width: 18px; height: 18px; border-radius: 50%; background: var(--bg4); display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: 500; color: var(--text3); flex-shrink: 0; transition: all .2s; }
+.up-panel.has .snum { background: var(--accent-bg); color: var(--accent); border: 1px solid var(--accent-border); }
+.panel-sub { font-size: 11px; color: var(--text3); margin-left: auto; }
+.drop-zone { position: relative; min-height: clamp(116px, 16vh, 180px); max-height: 260px; margin: 8px; border: 1px dashed var(--border2); border-radius: var(--rsm); display: flex; flex-direction: column; align-items: center; justify-content: center; cursor: pointer; transition: background .15s,border-color .15s; overflow: hidden; }
+.drop-zone:hover { background: rgba(255,255,255,.02); }
+.drop-zone input[type=file] { position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; height: 100%; }
+.drop-icon { font-size: 30px; margin-bottom: 10px; opacity: .25; }
+.drop-main { font-size: 13px; color: var(--text2); margin-bottom: 4px; }
+.drop-sub { font-size: 11px; color: var(--text3); }
+.preview-img { width: 100%; height: auto; max-height: clamp(150px, 22vh, 240px); object-fit: contain; display: block; background: var(--bg); cursor: zoom-in; }
+.img-foot { padding: 7px 12px; border-top: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; font-size: 11px; color: var(--accent); display: none; }
+.clr-btn { background: none; border: none; color: var(--text3); cursor: pointer; font-size: 11px; font-family: inherit; padding: 2px 6px; border-radius: 4px; transition: color .15s; }
+.clr-btn:hover { color: var(--red); }
+.arr-col { display: none; }
+.arr-icon { width: 26px; height: 26px; border-radius: 50%; background: var(--bg4); display: flex; align-items: center; justify-content: center; color: var(--text3); font-size: 16px; }
+.field { margin-bottom: 12px; }
+.flabel { font-size: 12px; font-weight: 500; color: var(--text); margin-bottom: 8px; }
+textarea { width: 100%; background: rgba(14,14,15,.42); border: 1px solid var(--border2); border-radius: var(--rsm); padding: 11px 12px; color: var(--text); font-family: 'Noto Sans SC',sans-serif; font-size: 13px; resize: vertical; min-height: 72px; outline: none; transition: border-color .2s; line-height: 1.6; }
+textarea:focus { border-color: var(--accent-border); }
+textarea::placeholder { color: var(--text3); }
+.run-btn { width: 100%; padding: 14px; border-radius: var(--rsm); border: none; background: linear-gradient(135deg,#c9a96e,#e8c98a); color: #1a1200; font-family: 'Noto Sans SC',sans-serif; font-size: 14px; font-weight: 500; cursor: pointer; letter-spacing: .04em; transition: opacity .15s,transform .1s; display: flex; align-items: center; justify-content: center; gap: 8px; }
+.run-btn:hover { opacity: .88; }
+.run-btn:active { transform: scale(.99); }
+.run-btn:disabled { opacity: .28; cursor: not-allowed; transform: none; background: var(--bg4); color: var(--text3); }
+.result { display: flex; flex-direction: column; height: 100%; background: rgba(255,255,255,.035); border: 1px solid var(--border2); border-radius: var(--radius); overflow: hidden; animation: fadeUp .3s ease; box-shadow: inset 0 1px 0 rgba(255,255,255,.03); }
+@keyframes fadeUp { from{opacity:0;transform:translateY(10px)} to{opacity:1;transform:none} }
+.result.show { display: block; }
+.rhead { padding: 11px 18px; border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 8px; font-size: 12px; font-weight: 500; color: var(--text2); }
+.rbody { padding: clamp(12px, 1.6vw, 18px); flex: 1; min-height: 0; overflow: auto; }
+.empty-result { min-height: 100%; height: min(62vh, 620px); display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; color: var(--text3); border: 1px solid var(--border2); border-radius: var(--rsm); background: radial-gradient(circle at 30% 20%, rgba(136,166,184,.38), transparent 28%), radial-gradient(circle at 78% 78%, rgba(156,137,174,.22), transparent 28%), rgba(255,255,255,.04); box-shadow: inset 0 0 80px rgba(255,255,255,.08); }
+.empty-result-title { font-family: 'Noto Serif SC',serif; font-size: 28px; color: var(--text2); margin-bottom: 8px; }
+.empty-result-text { font-size: 13px; line-height: 1.8; max-width: 340px; }
+.output-image { width: 100%; max-height: min(64vh, 680px); object-fit: contain; display: block; background: var(--bg); cursor: zoom-in; }
+.result-actions { padding: 10px 14px; display: flex; justify-content: space-between; align-items: center; gap: 10px; background: var(--bg3); }
+.result-actions-left { font-size: 12px; color: var(--accent); }
+.result-actions-right { display: flex; align-items: center; gap: 8px; }
+.result-btn { font-size: 12px; color: var(--text2); text-decoration: none; border: 1px solid var(--border2); padding: 5px 11px; border-radius: 5px; background: transparent; cursor: pointer; font-family: inherit; transition: all .15s; }
+.result-btn:hover { border-color: var(--accent-border); color: var(--accent); }
+.result-btn.primary { color: #1a1200; border-color: transparent; background: linear-gradient(135deg,#c9a96e,#e8c98a); }
+.result-btn:disabled { opacity: .45; cursor: not-allowed; }
+.layers-panel { margin-top: 14px; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+.layer-card { background: var(--bg3); border: 1px solid var(--border); border-radius: var(--rsm); overflow: hidden; }
+.layer-card img { width: 100%; height: 180px; object-fit: contain; display: block; background: var(--bg); cursor: zoom-in; }
+.layer-card-foot { padding: 9px 10px; display: flex; align-items: center; justify-content: space-between; gap: 8px; border-top: 1px solid var(--border); }
+.layer-name { font-size: 12px; color: var(--accent); }
+.image-modal { position: fixed; inset: 0; z-index: 9999; display: none; align-items: center; justify-content: center; padding: 28px; background: rgba(0,0,0,.82); backdrop-filter: blur(8px); }
+.image-modal.show { display: flex; }
+.image-modal-img { max-width: 96vw; max-height: 92vh; object-fit: contain; border-radius: 10px; box-shadow: 0 24px 80px rgba(0,0,0,.55); background: var(--bg); }
+.image-modal-close { position: fixed; top: 22px; right: 24px; width: 36px; height: 36px; border-radius: 50%; border: 1px solid rgba(255,255,255,.22); background: rgba(30,30,33,.78); color: var(--text); font-size: 22px; line-height: 1; cursor: pointer; }
+.image-modal-close:hover { border-color: var(--accent-border); color: var(--accent); }
+.prog-wrap { margin-bottom: 16px; }
+.prog-track { height: 2px; background: var(--bg4); border-radius: 1px; overflow: hidden; margin-bottom: 9px; }
+.prog-fill { height: 100%; width: 0%; background: linear-gradient(90deg,var(--accent),var(--accent2)); border-radius: 1px; transition: width .4s ease; }
+.prog-label { font-size: 12px; color: var(--text2); display: flex; align-items: center; gap: 7px; }
+.spin { width: 12px; height: 12px; border: 1.5px solid var(--accent-border); border-top-color: var(--accent); border-radius: 50%; animation: spinning .7s linear infinite; flex-shrink: 0; }
+@keyframes spinning { to{transform:rotate(360deg)} }
+.analysis-box { background: var(--bg3); border-radius: var(--rsm); padding: 14px 16px; margin-bottom: 14px; }
+.abox-title { font-size: 10px; font-weight: 500; letter-spacing: .08em; text-transform: uppercase; color: var(--accent); margin-bottom: 8px; }
+.abox-text { font-size: 13px; color: var(--text); line-height: 1.75; }
+.tags { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 16px; }
+.tag { font-size: 11px; padding: 3px 10px; border-radius: 20px; border: 1px solid var(--accent-border); color: var(--accent); background: var(--accent-bg); }
+.divider { height: 1px; background: var(--border); margin: 16px 0; }
+.pblock { margin-bottom: 14px; }
+.plabel { font-size: 10px; font-weight: 500; letter-spacing: .08em; text-transform: uppercase; color: var(--text3); margin-bottom: 8px; display: flex; align-items: center; justify-content: space-between; }
+.copy-btn { background: none; border: 1px solid var(--border2); border-radius: 4px; padding: 2px 9px; font-size: 10px; color: var(--text3); cursor: pointer; font-family: inherit; transition: all .15s; letter-spacing: 0; text-transform: none; }
+.copy-btn:hover { border-color: var(--accent-border); color: var(--accent); }
+.copy-btn.copied { border-color: var(--green-border); color: var(--green); background: var(--green-bg); }
+.code-box { background: var(--bg); border: 1px solid var(--border); border-radius: var(--rsm); padding: 14px 16px; font-size: 12px; font-family: 'Cascadia Code','Consolas','Monaco',monospace; color: var(--text); line-height: 1.75; word-break: break-word; white-space: pre-wrap; user-select: all; }
+.neg-box { background: var(--red-bg); border: 1px solid var(--red-border); border-radius: var(--rsm); padding: 12px 14px; font-size: 12px; font-family: 'Cascadia Code','Consolas','Monaco',monospace; color: #e89292; line-height: 1.75; word-break: break-word; white-space: pre-wrap; user-select: all; }
+.tips-box { background: var(--bg3); border-radius: var(--rsm); padding: 13px 14px; font-size: 12px; color: var(--text2); line-height: 1.8; display: flex; gap: 10px; }
+.tips-icon { font-size: 15px; flex-shrink: 0; margin-top: 1px; }
+.platforms { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 8px; }
+.pbadge { font-size: 11px; padding: 3px 10px; border-radius: 20px; background: var(--bg4); color: var(--text2); border: 1px solid var(--border2); }
+.err-box { background: var(--red-bg); border: 1px solid var(--red-border); border-radius: var(--rsm); padding: 14px 16px; font-size: 13px; color: #e89292; line-height: 1.7; }
+::-webkit-scrollbar{width:4px} ::-webkit-scrollbar-track{background:transparent} ::-webkit-scrollbar-thumb{background:var(--border2);border-radius:2px}
+@media(max-width:1180px){.workbench{grid-template-columns:minmax(260px,.8fr) minmax(420px,1.6fr);}.history-panel{grid-column:1 / -1}.history-list{height:auto;max-height:260px;display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));}.history-empty{min-height:120px}.history-thumb{height:110px}}
+@media(max-width:820px){.main{max-width:760px}.workbench{grid-template-columns:1fr;min-height:auto}.output-panel,.history-panel{position:static}.result{height:auto}.empty-result{min-height:360px;height:auto}.history-list{display:flex;height:auto;max-height:none}.history-panel{order:3}}
+@media(max-width:860px){.layers-panel{grid-template-columns:1fr}}
+@media(max-width:700px){.shell{grid-template-columns:1fr}.sidebar{position:static;height:auto}.main{padding:20px 16px}.up-grid{grid-template-columns:1fr}.arr-col{padding-top:0;padding:8px 0}}
+</style>
+</head>
+<body>
+<div class="shell">
+<aside class="sidebar">
+  <div class="logo"><span>🪐</span> Planet</div>
+  <div class="logo-sub">已连接</div>
+</aside>
+<main class="main">
+  <div class="ph">
+    <h1>AI 画风转换工具</h1>
+    <p>上传参考画风图片 + 你的照片，AI 直接使用双图参考进行画风转换</p>
+  </div>
+  <div class="workbench">
+    <section class="control-panel">
+      <div class="key-box">
+        <div class="key-label">
+          <span>API Key</span>
+          <span class="key-status" id="api-key-status">未填写</span>
+        </div>
+        <div class="key-row">
+          <input type="password" id="api-key-input" placeholder="请输入你自己的 API Key" autocomplete="off">
+          <button class="key-toggle" type="button" onclick="toggleApiKey(event)">显示</button>
+        </div>
+        <div class="key-help">Key 只保存在当前浏览器本地，请勿使用他人的额度。</div>
+      </div>
+      <div class="up-grid">
+        <div class="up-panel" id="panel-style">
+          <div class="panel-head"><span>1. 画风参考图</span><span class="panel-sub">可选</span></div>
+          <div class="drop-zone" id="zone-style" ondragover="onDrag(event,'style',true)" ondragleave="onDrag(event,'style',false)" ondrop="onDrop(event,'style')">
+            <input type="file" accept="image/*" id="inp-style" onchange="handleFile('style',this)">
+            <div id="ph-style"><div class="drop-icon">🎨</div><div class="drop-main">点击、拖拽或 Ctrl+V 粘贴图片</div><div class="drop-sub">支持 JPG · PNG · WEBP（≤20MB）</div></div>
+          </div>
+          <div class="img-foot" id="foot-style"><span id="name-style">✓ 已上传</span><button class="clr-btn" onclick="clearImg('style')">× 移除</button></div>
+        </div>
+        <div class="arr-col"><div class="arr-icon">+</div></div>
+        <div class="up-panel" id="panel-photo">
+          <div class="panel-head"><span>2. 要转换的照片</span><span class="panel-sub">必填</span></div>
+          <div class="drop-zone" id="zone-photo" ondragover="onDrag(event,'photo',true)" ondragleave="onDrag(event,'photo',false)" ondrop="onDrop(event,'photo')">
+            <input type="file" accept="image/*" id="inp-photo" onchange="handleFile('photo',this)">
+            <div id="ph-photo"><div class="drop-icon">📷</div><div class="drop-main">点击或拖拽上传图片</div><div class="drop-sub">支持 JPG · PNG · WEBP（≤20MB）</div></div>
+          </div>
+          <div class="img-foot" id="foot-photo"><span id="name-photo">✓ 已上传</span><button class="clr-btn" onclick="clearImg('photo')">× 移除</button></div>
+        </div>
+      </div>
+      <div class="field">
+        <div class="flabel">3. 补充说明（可选）</div>
+        <textarea id="extra" placeholder="例如：保留背景简洁、增强眼部细节、使用暖光氛围、不改变发色……"></textarea>
+      </div>
+      <button class="run-btn" id="run-btn" onclick="run()" disabled>✦ 开始转换画风</button>
+    </section>
+    <section class="output-panel">
+      <div class="result" id="result">
+        <div class="rhead">✦ 输出结果</div>
+        <div class="rbody" id="rbody">
+          <div class="empty-result">
+            <div class="empty-result-title">等待输出结果</div>
+            <div class="empty-result-text">上传画风参考图和待转换图片后，点击左侧按钮，生成结果会显示在这里。</div>
+          </div>
+        </div>
+      </div>
+    </section>
+    <aside class="history-panel">
+      <div class="history-head">
+        <div class="history-title">历史记录</div>
+        <button class="history-clear" type="button" onclick="clearHistory()">清空</button>
+      </div>
+      <div class="history-list" id="history-list">
+        <div class="history-empty">暂无历史记录<br>生成后的图片会显示在这里</div>
+      </div>
+    </aside>
+  </div>
+</main>
+</div>
+<div class="image-modal" id="image-modal" onclick="closeImageModal(event)">
+  <button class="image-modal-close" type="button" onclick="closeImageModal(event)">×</button>
+  <img class="image-modal-img" id="image-modal-img" alt="图片预览">
+</div>
+<script>
+const imgs = { style: null, photo: null };
+const API_KEY_STORAGE = 'aiStyleTransferApiKey';
+const HISTORY_KEY = 'aiStyleTransferHistory';
+const HISTORY_LIMIT = 12;
+initApiKey();
+renderHistory();
+
+function getUserApiKey() {
+  return document.getElementById('api-key-input')?.value.trim() || '';
+}
+
+function requireUserApiKey() {
+  const key = getUserApiKey();
+  if (!key) {
+    throw new Error('请先填写你自己的 API Key，再开始使用。');
+  }
+  return key;
+}
+
+function apiHeaders(extra = {}) {
+  return { ...extra, 'x-user-api-key': requireUserApiKey() };
+}
+
+function initApiKey() {
+  const input = document.getElementById('api-key-input');
+  if (!input) return;
+
+  input.value = localStorage.getItem(API_KEY_STORAGE) || '';
+  input.addEventListener('input', () => {
+    const value = input.value.trim();
+    if (value) localStorage.setItem(API_KEY_STORAGE, value);
+    else localStorage.removeItem(API_KEY_STORAGE);
+    updateApiKeyStatus();
+    checkReady();
+  });
+  updateApiKeyStatus();
+}
+
+function updateApiKeyStatus() {
+  const status = document.getElementById('api-key-status');
+  if (!status) return;
+
+  const hasKey = !!getUserApiKey();
+  status.textContent = hasKey ? '已保存到本机' : '未填写';
+  status.classList.toggle('ok', hasKey);
+}
+
+function toggleApiKey(event) {
+  const input = document.getElementById('api-key-input');
+  const btn = event.currentTarget;
+  if (!input) return;
+
+  const shouldShow = input.type === 'password';
+  input.type = shouldShow ? 'text' : 'password';
+  btn.textContent = shouldShow ? '隐藏' : '显示';
+}
+
+function pick(g, el) {
+  document.getElementById(g + '-chips').querySelectorAll('.chip').forEach(c => c.classList.remove('active'));
+  el.classList.add('active');
+}
+function getActive(id) {
+  const el = document.querySelector('#' + id + ' .chip.active');
+  return el ? el.textContent.trim() : '';
+}
+function handleFile(t, input) {
+  const f = input.files[0];
+  if (!f) return;
+  imgs[t] = f;
+  showPreview(t, URL.createObjectURL(f), f.name);
+  checkReady();
+}
+function onDrag(e, t, over) {
+  e.preventDefault();
+  document.getElementById('panel-' + t).classList.toggle('drag', over);
+}
+function onDrop(e, t) {
+  e.preventDefault();
+  document.getElementById('panel-' + t).classList.remove('drag');
+  const f = e.dataTransfer.files[0];
+  if (!f || !f.type.startsWith('image/')) return;
+  imgs[t] = f;
+  showPreview(t, URL.createObjectURL(f), f.name);
+  checkReady();
+}
+function handlePasteUpload(e) {
+  const active = document.activeElement;
+  const isTyping = active && ['TEXTAREA', 'INPUT'].includes(active.tagName);
+  if (isTyping) return;
+
+  const items = Array.from(e.clipboardData?.items || []);
+  const imageItem = items.find(item => item.type.startsWith('image/'));
+  if (!imageItem) return;
+
+  const file = imageItem.getAsFile();
+  if (!file) return;
+
+  e.preventDefault();
+  const pastedFile = new File([file], `pasted-style-${Date.now()}.png`, { type: file.type || 'image/png' });
+  imgs.style = pastedFile;
+  showPreview('style', URL.createObjectURL(pastedFile), pastedFile.name);
+  checkReady();
+}
+function showPreview(t, src, name) {
+  const zone = document.getElementById('zone-' + t);
+  const ph = document.getElementById('ph-' + t);
+  const foot = document.getElementById('foot-' + t);
+  const nameEl = document.getElementById('name-' + t);
+  const panel = document.getElementById('panel-' + t);
+  const input = document.getElementById('inp-' + t);
+  let img = zone.querySelector('img.preview-img');
+  if (!img) { img = document.createElement('img'); img.className = 'preview-img'; zone.appendChild(img); }
+  img.src = src;
+  img.onclick = (event) => {
+    event.stopPropagation();
+    openImageModal(src);
+  };
+  if (input) input.style.pointerEvents = 'none';
+  ph.style.display = 'none';
+  foot.style.display = 'flex';
+  nameEl.textContent = '✓ ' + (name.length > 20 ? name.slice(0, 18) + '…' : name);
+  panel.classList.add('has');
+}
+function clearImg(t) {
+  imgs[t] = null;
+  const zone = document.getElementById('zone-' + t);
+  const img = zone.querySelector('img.preview-img');
+  if (img) img.remove();
+  document.getElementById('ph-' + t).style.display = '';
+  document.getElementById('foot-' + t).style.display = 'none';
+  document.getElementById('panel-' + t).classList.remove('has');
+  document.getElementById('inp-' + t).value = '';
+  document.getElementById('inp-' + t).style.pointerEvents = '';
+  checkReady();
+}
+function checkReady() {
+  document.getElementById('run-btn').disabled = !(imgs.style && imgs.photo && getUserApiKey());
+}
+
+async function run() {
+  const btn = document.getElementById('run-btn');
+  btn.disabled = true;
+  btn.textContent = '⏳ 正在转换画风…';
+  const result = document.getElementById('result');
+  const rbody = document.getElementById('rbody');
+  result.classList.add('show');
+  rbody.innerHTML = '<div class="prog-wrap"><div class="prog-track"><div class="prog-fill" id="pbar"></div></div><div class="prog-label"><span class="spin"></span><span id="plabel">正在读取风格参考图…</span></div></div>';
+  const steps = ['正在读取风格参考图…', '正在读取待转换图片…', '正在执行双图参考转换…', '正在保持内容结构…', '正在输出最终图片…'];
+  let prog = 0;
+  const interval = setInterval(() => {
+    prog = Math.min(prog + Math.random() * 9, 92);
+    const pb = document.getElementById('pbar');
+    const pl = document.getElementById('plabel');
+    if (pb) pb.style.width = prog + '%';
+    if (pl) pl.textContent = steps[Math.min(Math.floor(prog / 18), steps.length - 1)];
+  }, 500);
+  try {
+    const fd = new FormData();
+    fd.append('style', imgs.style);
+    fd.append('photo', imgs.photo);
+    fd.append('extra', document.getElementById('extra').value);
+    const res = await fetch('/api/style-transfer-image', {
+      method: 'POST',
+      headers: apiHeaders(),
+      body: fd
+    });
+    const data = await res.json();
+    clearInterval(interval);
+    const pb = document.getElementById('pbar');
+    if (pb) pb.style.width = '100%';
+    if (!res.ok || !data.ok) throw new Error(data.error || '未知错误');
+    showGeneratedImage(data.image || data.imageUrl, { kind: '画风转换' });
+  } catch (err) {
+    clearInterval(interval);
+    rbody.innerHTML = `<div class="err-box">❌ 出错了：${err.message}<br><br><strong>排查步骤：</strong><br>1. 确认页面左侧填入的是你自己的 API Key<br>2. 确认 IMAGE_MODEL 支持多图输入/图像编辑<br>3. 重启服务器（Ctrl+C 后重新 npm start）<br>4. 检查自己的账户余额 → <a href="https://platform.openai.com/" target="_blank" style="color:var(--accent)">platform.openai.com</a></div>`;
+  }
+  btn.disabled = false;
+  btn.textContent = '✦ 重新转换';
+  checkReady();
+}
+
+function showGeneratedImage(imgSrc, options = {}) {
+  const rbody = document.getElementById('rbody');
+  const kind = options.kind || '画风转换';
+  window._currentOutputImage = imgSrc;
+  if (options.save !== false) saveHistory(imgSrc, kind);
+  rbody.innerHTML = `
+    <div class="analysis-box">
+      <div class="abox-title">✦ 转换模式</div>
+      <div class="abox-text">已使用「画风参考图 + 待转换图片 + 固定任务指令」直接生成结果。风格参考图只负责画风，待转换图片负责内容、主体、姿势和构图。</div>
+    </div>
+    <div style="border-radius:8px;overflow:hidden;border:1px solid var(--accent-border);">
+      <img src="${imgSrc}" class="output-image" alt="画风转换结果" onclick="openImageModal(this.src)">
+      <div class="result-actions">
+        <span class="result-actions-left">✓ ${kind}结果</span>
+        <div class="result-actions-right">
+          <button class="result-btn primary" id="enhance-btn" onclick="enhanceImage()">增强画质</button>
+          <button class="result-btn" id="split-layers-btn" onclick="splitLayers()">拆分图层</button>
+          <a class="result-btn" href="${imgSrc}" download="画风转换结果.png" id="download-link">下载</a>
+        </div>
+      </div>
+    </div>`;
+}
+
+async function enhanceImage() {
+  const btn = document.getElementById('enhance-btn');
+  const rbody = document.getElementById('rbody');
+  const currentImage = window._currentOutputImage;
+  if (!currentImage) return;
+
+  btn.disabled = true;
+  btn.textContent = '增强中…';
+
+  const status = document.createElement('div');
+  status.className = 'analysis-box';
+  status.id = 'enhance-status';
+  status.innerHTML = '<div class="abox-title">✦ 增强画质</div><div class="abox-text">正在提升清晰度、细节层次和边缘质量，请稍候…</div>';
+  rbody.prepend(status);
+
+  try {
+    const res = await fetch('/api/enhance-image', {
+      method: 'POST',
+      headers: apiHeaders({ 'Content-Type': 'application/json' }),
+      body: JSON.stringify({ image: currentImage })
+    });
+    const data = await res.json();
+    if (!res.ok || !data.ok) throw new Error(data.error || '增强失败');
+
+    showGeneratedImage(data.image || data.imageUrl, { kind: '画质增强' });
+    const nextStatus = document.createElement('div');
+    nextStatus.className = 'analysis-box';
+    nextStatus.innerHTML = '<div class="abox-title">✦ 增强完成</div><div class="abox-text">已在保持内容和画风不变的前提下增强画质。</div>';
+    document.getElementById('rbody').prepend(nextStatus);
+  } catch (err) {
+    const statusEl = document.getElementById('enhance-status');
+    if (statusEl) statusEl.outerHTML = `<div class="err-box">❌ 增强失败：${err.message}</div>`;
+    btn.disabled = false;
+    btn.textContent = '增强画质';
+  }
+}
+
+async function splitLayers() {
+  const btn = document.getElementById('split-layers-btn');
+  const rbody = document.getElementById('rbody');
+  const currentImage = window._currentOutputImage;
+  if (!currentImage) return;
+
+  btn.disabled = true;
+  btn.textContent = '拆分中…';
+
+  let statusEl = document.getElementById('layers-status');
+  if (!statusEl) {
+    statusEl = document.createElement('div');
+    statusEl.className = 'analysis-box';
+    statusEl.id = 'layers-status';
+    rbody.appendChild(statusEl);
+  }
+  statusEl.innerHTML = '<div class="abox-title">✦ 拆分图层</div><div class="abox-text">正在生成主体层、背景层和线稿层，可能需要更长时间…</div>';
+
+  try {
+    const res = await fetch('/api/split-layers', {
+      method: 'POST',
+      headers: apiHeaders({ 'Content-Type': 'application/json' }),
+      body: JSON.stringify({ image: currentImage })
+    });
+    const data = await res.json();
+    if (!res.ok || !data.ok) throw new Error(data.error || '拆分失败');
+
+    statusEl.outerHTML = renderLayers(data.layers || []);
+  } catch (err) {
+    statusEl.outerHTML = `<div class="err-box">❌ 拆分图层失败：${err.message}</div>`;
+  } finally {
+    btn.disabled = false;
+    btn.textContent = '重新拆分图层';
+  }
+}
+
+function renderLayers(layers) {
+  if (!layers.length) {
+    return '<div class="err-box">未获取到图层结果</div>';
+  }
+
+  const cards = layers.map((layer) => `
+    <div class="layer-card">
+      <img src="${layer.image}" alt="${layer.name}" onclick="openImageModal(this.src)">
+      <div class="layer-card-foot">
+        <span class="layer-name">${layer.name}</span>
+        <a class="result-btn" href="${layer.image}" download="${layer.name}.png">下载</a>
+      </div>
+    </div>
+  `).join('');
+
+  return `
+    <div class="analysis-box">
+      <div class="abox-title">✦ 图层拆分结果</div>
+      <div class="abox-text">已生成主体层、背景层和线稿层。点击任意图层可放大预览。</div>
+    </div>
+    <div class="layers-panel">${cards}</div>
+  `;
+}
+
+function showResult(p) {
+  const rbody = document.getElementById('rbody');
+  const tagsHtml = (p.style_tags || []).map(t => `<span class="tag">${t}</span>`).join('');
+
+  // 风格DNA表格
+  const dna = p.style_dna || {};
+  const dnaRows = [
+    ['轮廓线', dna.outline],
+    ['阴影方式', dna.shading],
+    ['色彩特征', dna.palette],
+    ['眼睛风格', dna.eye_style],
+    ['皮肤质感', dna.skin],
+  ].filter(([, v]) => v).map(([k, v]) => `
+    <div style="display:flex;gap:10px;padding:6px 0;border-bottom:1px solid var(--border);">
+      <span style="color:var(--text3);font-size:11px;min-width:54px;flex-shrink:0">${k}</span>
+      <span style="color:var(--text);font-size:12px;font-family:monospace">${v}</span>
+    </div>`).join('');
+
+  rbody.innerHTML = `
+    ${p.style_type ? `<div style="display:inline-flex;align-items:center;gap:6px;background:var(--accent-bg);border:1px solid var(--accent-border);border-radius:20px;padding:4px 12px;margin-bottom:14px;">
+      <span style="font-size:11px;color:var(--accent)">🎨 识别风格类型</span>
+      <span style="font-size:12px;font-weight:500;color:var(--accent2)">${p.style_type}</span>
+    </div>` : ''}
+
+    <div class="analysis-box">
+      <div class="abox-title">✦ 风格深度分析</div>
+      <div class="abox-text">${p.style_analysis || '—'}</div>
+    </div>
+
+    ${dnaRows ? `<div class="analysis-box" style="margin-top:10px">
+      <div class="abox-title">✦ 视觉 DNA</div>
+      ${dnaRows}
+    </div>` : ''}
+
+    ${tagsHtml ? `<div class="tags" style="margin-top:12px">${tagsHtml}</div>` : ''}
+    <div class="divider"></div>
+
+    <div class="pblock">
+      <div class="plabel">正向提示词（分层结构）<button class="copy-btn" id="cbtn-pos" onclick="copyText('cbox-pos','cbtn-pos')">复制</button></div>
+      <div class="code-box" id="cbox-pos">${p.prompt || ''}</div>
+    </div>
+
+    <div class="pblock">
+      <div class="plabel">负向提示词<button class="copy-btn" id="cbtn-neg" onclick="copyText('cbox-neg','cbtn-neg')">复制</button></div>
+      <div class="neg-box" id="cbox-neg">${p.negative_prompt || ''}</div>
+    </div>
+
+    <div class="divider"></div>
+    <button onclick="generateImage()" id="gen-btn" style="width:100%;padding:13px;border-radius:8px;border:none;background:linear-gradient(135deg,#6e8fc9,#8ab0e8);color:#fff;font-family:inherit;font-size:14px;font-weight:500;cursor:pointer;margin-bottom:16px;display:flex;align-items:center;justify-content:center;gap:8px;">
+      🎨 直接生成图片
+    </button>
+    <div id="gen-result"></div>
+    <div class="divider"></div>
+
+    <div class="tips-box">
+      <div class="tips-icon">💡</div>
+      <div>
+        <div style="color:var(--text);margin-bottom:6px">${p.tips || ''}</div>
+        <div class="platforms">
+          <span class="pbadge">Midjourney</span>
+          <span class="pbadge">Stable Diffusion</span>
+          <span class="pbadge">Flux</span>
+          <span class="pbadge">DALL·E 3</span>
+          <span class="pbadge">ComfyUI</span>
+        </div>
+      </div>
+    </div>`;
+
+  window._currentPrompt = p.prompt;
+  window._currentNeg = p.negative_prompt;
+  window._currentStyle = p.styleBase64;
+  window._currentPhoto = p.photoBase64;
+}
+
+async function generateImage() {
+  const btn = document.getElementById('gen-btn');
+  const genResult = document.getElementById('gen-result');
+
+  btn.disabled = true;
+  btn.textContent = '⏳ 生成中，请稍候…';
+
+  genResult.innerHTML = `
+    <div style="background:var(--bg3);border-radius:8px;padding:20px;text-align:center;color:var(--text2);font-size:13px;">
+      <div style="margin-bottom:8px">🎨 AI 正在绘制中，约需 15-30 秒…</div>
+      <div class="prog-track" style="margin:0 auto;max-width:300px"><div class="prog-fill" id="gen-pbar" style="width:0%"></div></div>
+    </div>`;
+
+  let p = 0;
+  const iv = setInterval(() => {
+    p = Math.min(p + 2, 92);
+    const pb = document.getElementById('gen-pbar');
+    if (pb) pb.style.width = p + '%';
+  }, 600);
+
+  try {
+    // 生成阶段同时传入画风参考图和内容图，模型才能直接学习参考图画风。
+    const res = await fetch('/api/generate', {
+      method: 'POST',
+      headers: apiHeaders({ 'Content-Type': 'application/json' }),
+      body: JSON.stringify({
+        prompt: window._currentPrompt,
+        negative_prompt: window._currentNeg,
+        styleBase64: window._currentStyle,
+        photoBase64: window._currentPhoto
+      })
+    });
+
+    const data = await res.json();
+    clearInterval(iv);
+
+    if (!res.ok || !data.ok) throw new Error(data.error || '生成失败');
+
+    const imgSrc = data.image || data.imageUrl;
+    window._currentOutputImage = imgSrc;
+    saveHistory(imgSrc, '直接生成');
+    genResult.innerHTML = `
+      <div style="border-radius:8px;overflow:hidden;border:1px solid var(--accent-border);">
+        <img src="${imgSrc}" class="output-image" alt="生成结果" onclick="openImageModal(this.src)">
+        <div class="result-actions">
+          <span class="result-actions-left">✓ 生成成功（双图参考模式）</span>
+          <div class="result-actions-right">
+            <button class="result-btn primary" id="enhance-btn" onclick="enhanceImage()">增强画质</button>
+            <button class="result-btn" id="split-layers-btn" onclick="splitLayers()">拆分图层</button>
+            <a class="result-btn" href="${imgSrc}" download="生成图片.png">下载</a>
+          </div>
+        </div>
+      </div>`;
+
+  } catch (err) {
+    clearInterval(iv);
+    genResult.innerHTML = `<div class="err-box">❌ 生成失败：${err.message}</div>`;
+  }
+
+  btn.disabled = false;
+  btn.textContent = '🎨 重新生成';
+}
+
+function copyText(boxId, btnId) {
+  const text = document.getElementById(boxId).textContent;
+  navigator.clipboard.writeText(text).then(() => {
+    const btn = document.getElementById(btnId);
+    btn.textContent = '✓ 已复制';
+    btn.classList.add('copied');
+    setTimeout(() => { btn.textContent = '复制'; btn.classList.remove('copied'); }, 2000);
+  });
+}
+
+function getHistory() {
+  try {
+    return JSON.parse(localStorage.getItem(HISTORY_KEY) || '[]');
+  } catch {
+    return [];
+  }
+}
+
+function setHistory(items) {
+  localStorage.setItem(HISTORY_KEY, JSON.stringify(items.slice(0, HISTORY_LIMIT)));
+}
+
+function saveHistory(image, kind) {
+  const item = {
+    id: Date.now(),
+    image,
+    kind,
+    time: new Date().toLocaleString('zh-CN', { hour12: false })
+  };
+  let history = [item, ...getHistory()].slice(0, HISTORY_LIMIT);
+
+  try {
+    setHistory(history);
+  } catch {
+    // base64 图片可能触发浏览器本地存储上限，逐步减少历史数量再保存。
+    while (history.length > 1) {
+      history = history.slice(0, -1);
+      try {
+        setHistory(history);
+        break;
+      } catch {}
+    }
+  }
+
+  renderHistory();
+}
+
+function renderHistory() {
+  const list = document.getElementById('history-list');
+  if (!list) return;
+
+  const history = getHistory();
+  if (!history.length) {
+    list.innerHTML = '<div class="history-empty">暂无历史记录<br>生成后的图片会显示在这里</div>';
+    return;
+  }
+
+  list.innerHTML = history.map((item, index) => `
+    <div class="history-item">
+      <img class="history-thumb" src="${item.image}" alt="${item.kind}" onclick="event.stopPropagation(); openImageModal(this.src)">
+      <div class="history-meta" onclick="restoreHistory(${index})">
+        <div class="history-kind">${item.kind || '生成结果'}</div>
+        <div class="history-time">${item.time || ''}</div>
+      </div>
+    </div>
+  `).join('');
+}
+
+function restoreHistory(index) {
+  const item = getHistory()[index];
+  if (!item) return;
+
+  showGeneratedImage(item.image, {
+    kind: item.kind || '历史记录',
+    save: false
+  });
+}
+
+function clearHistory() {
+  if (!confirm('确定要清空历史记录吗？')) return;
+  localStorage.removeItem(HISTORY_KEY);
+  renderHistory();
+}
+
+function openImageModal(src) {
+  const modal = document.getElementById('image-modal');
+  const img = document.getElementById('image-modal-img');
+  img.src = src;
+  modal.classList.add('show');
+  document.body.style.overflow = 'hidden';
+}
+
+function closeImageModal(event) {
+  if (event && event.target.id !== 'image-modal' && !event.target.classList.contains('image-modal-close')) return;
+
+  const modal = document.getElementById('image-modal');
+  const img = document.getElementById('image-modal-img');
+  modal.classList.remove('show');
+  img.src = '';
+  document.body.style.overflow = '';
+}
+
+document.addEventListener('keydown', (event) => {
+  if (event.key === 'Escape') closeImageModal({ target: document.getElementById('image-modal') });
+});
+document.addEventListener('paste', handlePasteUpload);
+</script>
+</body>
+</html>
